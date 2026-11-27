@@ -8,3 +8,11 @@ __pycache__/
 
 # OS
 .DS_Store
+
+# Build output and local tooling
+dist/
+.sites-runtime/
+node_modules/
+.env
+.env.*
+!.env.example
