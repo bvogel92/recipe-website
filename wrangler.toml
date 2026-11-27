@@ -1,0 +1,19 @@
+# Cloudflare Worker: the recipe import helper.
+# It fetches a public recipe page for the site so "Import a recipe → From a web address" works,
+# including on phones. The website itself is hosted on GitHub Pages, so this Worker serves no pages.
+#
+# Deploy: Cloudflare dashboard → Workers & Pages → Create → Import a repository → this repo.
+# Leave the build command empty; the deploy command is the default `npx wrangler deploy`.
+name = "recipe-import-helper"
+main = "worker/template.js"
+compatibility_date = "2025-09-01"
+workers_dev = true
+preview_urls = false
+
+# Helper only: no website files are bundled into the Worker.
+[define]
+__ASSETS__ = "{}"
+
+# Sites allowed to use the helper (comma-separated origins, no paths).
+[vars]
+ALLOWED_ORIGINS = "https://recipes.bobbyvogel.com"

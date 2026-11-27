@@ -88,9 +88,18 @@ Recipe sites can't be fetched from the browser directly, and GitHub Pages has no
 - **Paste**: paste the page source or recipe JSON, like Mealie's "Import from HTML or JSON". This is the simplest option on phones.
 - **Web address** (optional): deploy the Worker below as an import helper and set `importHelperUrl` in `assets/config.js`.
 
-### Optional import helper (Cloudflare Worker)
+### Import helper (Cloudflare Worker)
 
-`bash scripts/build.sh` produces `dist/server/index.js`, which serves the site and the `/api/recipe-page` helper. To use it from GitHub Pages, deploy it with your own Cloudflare account, set the Worker variable `ALLOWED_ORIGINS` to `https://YOUR-NAME.github.io`, and set `importHelperUrl` to `https://YOUR-WORKER.workers.dev/api/recipe-page`. The helper only fetches public HTTPS pages up to 2 MB, follows at most three redirects, and refuses requests from other sites. If the Worker hosts the site itself, set `importHelperUrl` to `/api/recipe-page`.
+The Worker in `worker/template.js` fetches a public recipe page so "From a web address" works on any device, including phones. `wrangler.toml` deploys it as a small helper (no website files are bundled). It only fetches public HTTPS pages up to 2 MB, follows at most three redirects, and only answers the sites listed in `ALLOWED_ORIGINS`.
+
+1. In the Cloudflare dashboard, open **Workers & Pages → Create → Import a repository**, and pick this repository.
+2. Leave the build command empty and keep the deploy command `npx wrangler deploy`. Deploy.
+3. Copy the Worker's address (`https://recipe-import-helper.<your-subdomain>.workers.dev`) and set `importHelperUrl` in `assets/config.js` to that address plus `/api/recipe-page`.
+4. If the site moves to another address, update `ALLOWED_ORIGINS` in `wrangler.toml`.
+
+On phones the import window then shows a **Paste** button next to the link box. Opening `https://<site>/?import=<recipe link>` also starts an import, which works with an iPhone Shortcut or an Android share shortcut.
+
+`bash scripts/build.sh` still produces `dist/server/index.js`, a Worker that serves the whole site plus the helper, for hosting everything on Cloudflare instead.
 
 ## Sharing and changes
 
