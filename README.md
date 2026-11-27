@@ -8,6 +8,7 @@ A personal recipe collection with a Neubrutalist interface, recipe imports, week
 - Search, sorting, multiple category labels, grouped category view, personal ratings, and compact clickable cards.
 - Detail view with two-column ingredients, basic Markdown, previous/next navigation, keyboard arrows, and click-outside dismissal.
 - Optional sync across devices through each person's own Google Drive (see **Turn on sync**).
+- Substitution charts: ingredient lines that mention onion get a **⇄ Swap** button showing fresh, dried minced, and powdered equivalents, with the recipe's amount highlighted. Charts live in `assets/substitutions.js`.
 - Recipe import with review before saving, from a bookmarklet, pasted page source or recipe JSON, or an optional import helper. Reads schema.org Recipe JSON-LD and microdata, Blueberry.org layouts and WP Recipe Maker pages, and falls back to the page title and photo.
 - Uploaded-photo compression above 1 MB; JSON backup import and export.
 - Rule-based Beautify and category suggestions; original text is retained when formatting changes it.
