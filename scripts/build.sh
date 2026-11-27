@@ -8,6 +8,9 @@ files['/recipe-markdown.js']=('assets/recipe-markdown.js','text/javascript; char
 files['/meal-planner.js']=('assets/meal-planner.js','text/javascript; charset=utf-8')
 files['/meal-planner.css']=('assets/meal-planner.css','text/css; charset=utf-8')
 files['/vendor/pdf-lib.min.js']=('assets/vendor/pdf-lib.min.js','text/javascript; charset=utf-8')
+files['/cloud.js']=('assets/cloud.js','text/javascript; charset=utf-8')
+files['/cloud.css']=('assets/cloud.css','text/css; charset=utf-8')
+files['/oauth-callback.html']=('assets/oauth-callback.html','text/html; charset=utf-8')
 for name in ['speculaas','focaccia','biscuits','margarita']:
     files['/images/'+name+'.png']=('assets/'+name+'.jpg','image/jpeg')
 assets={url:{'data':base64.b64encode(open(path,'rb').read()).decode(),'type':kind} for url,(path,kind) in files.items()}

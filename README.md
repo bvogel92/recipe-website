@@ -16,7 +16,7 @@ A personal recipe collection with a Neubrutalist interface, recipe imports, week
 
 ## Data and privacy
 
-Recipes, photos, preferences, and meal plans are saved in browser localStorage, separately for each browser and origin. This repository contains application source and generic image assets, not the owner's saved recipe library. To transfer recipes, use Export in the original app and Import backup in the new app. Automatic Google Drive, Dropbox, and Pinterest synchronization is not implemented.
+Recipes, photos, preferences, and meal plans are saved in browser localStorage, separately for each browser and origin. This repository contains application source and generic image assets, not the owner's saved recipe library. To transfer recipes, use Export in the original app and Import backup in the new app. Optional Google Drive sync (sign in, and the collection is kept in a "Recipe Collection" folder in your Drive) is described in `README-cloud.md`; it needs the local `serve.py` server. Dropbox and Pinterest synchronization are not implemented.
 
 The original hosted Site identity, credentials, generated deployment output, and Git history are excluded. This is a standalone source snapshot. Keep a new deployment private unless you deliberately choose another audience.
 

@@ -1,26 +1,73 @@
 /* Recipe Collection — account & sync UI. Styled to match the app theme. */
-.account-btn{display:inline-flex;align-items:center;gap:8px;padding:9px 13px;font-size:13px}
+
+/* `display` rules below would otherwise override the [hidden] attribute. */
+.account-btn[hidden],.provider-btn[hidden],#acct-out[hidden],#acct-in[hidden],.acct-grid [hidden],.consent-list [hidden],.consent-switch[hidden]{display:none}
+
+/* Header account button */
+.account-btn{display:inline-flex;align-items:center;gap:8px;padding:9px 13px;font-size:13px;white-space:nowrap}
+.account-btn .account-label{max-width:16ch;overflow:hidden;text-overflow:ellipsis}
+.account-btn .account-short{display:none}
+#settings-open{white-space:nowrap}
+/* The base `header span` rule (13px, muted) must not reach text inside header buttons. */
+header button span{font-size:inherit;color:inherit}
 .account-btn .account-dot{width:10px;height:10px;border-radius:50%;background:#b9b2a4;border:1px solid var(--ink);flex:none;transition:background .2s}
 .account-btn .account-dot.on{background:#3f9d4e}
 .account-btn .account-dot.syncing{background:#e8a33d;animation:rc-pulse 1s ease-in-out infinite}
 .account-btn .account-dot.error{background:#d64545}
-.account-btn.is-error{border-color:#c03434}
+.account-btn.is-error{border-color:#c03434;color:#a02626}
 @keyframes rc-pulse{50%{opacity:.35}}
-@media(max-width:650px){.account-btn{padding:8px 10px;font-size:12px}}
-#account-dialog .modal,#consent-dialog .modal{max-width:470px}
-.provider-grid{display:grid;gap:10px;margin:18px 0 14px}
-.provider-btn{display:flex;align-items:center;justify-content:center;gap:10px;width:100%}
+@media(prefers-reduced-motion:reduce){.account-btn .account-dot.syncing{animation:none}}
+@media(max-width:650px){
+  .header-tools{gap:8px;flex:none}
+  header b{white-space:nowrap;min-width:0;overflow:hidden;text-overflow:ellipsis}
+  .account-btn{padding:8px 10px;font-size:12px}
+  /* Short status word on phones, so the header stays on one line. */
+  .account-btn .account-label{display:none}
+  .account-btn .account-short{display:inline}
+}
+@media(max-width:480px){
+  header b{font-size:17px}
+  .brand-icon{width:30px;height:30px;margin-right:6px}
+  #settings-open .settings-label{display:none}
+  #settings-open{font-size:16px;padding:6px 10px}
+}
+
+/* Dialogs: size the <dialog> itself so it doesn't leave an empty strip beside the content. */
+#account-dialog,#consent-dialog{max-width:470px}
+#account-dialog .modal,#consent-dialog .modal{padding:26px 26px 24px}
+#account-dialog .actions,#consent-dialog .actions{margin-top:20px;flex-wrap:wrap}
+#account-dialog p.sub{margin:12px 0 0}
+
+/* Signed-out: provider choice */
+.provider-grid{display:grid;gap:12px;margin:20px 0 12px}
+.provider-btn{display:flex;align-items:center;justify-content:center;gap:10px;width:100%;padding:13px 16px;font-size:15px}
 .provider-badge{display:inline-grid;place-items:center;width:24px;height:24px;border:2px solid var(--ink);border-radius:50%;font-weight:900;font-size:13px;background:var(--paper);flex:none;line-height:1}
-.provider-badge.g{background:#ffdd47}
 .provider-badge.mock{background:var(--accent-three)}
-#provider-note{min-height:20px}
+#provider-note{min-height:20px;font-size:13px;margin:4px 0 0}
+#provider-note:empty{min-height:0;margin:0}
 #provider-note.is-error{color:#c03434;font-weight:700}
-.acct-head{display:flex;align-items:center;gap:12px;margin:18px 0 4px}
-.acct-head strong{font-size:17px;display:block}
-.acct-head p{margin:2px 0 0}
+
+/* Signed-in: account summary */
+.acct-head{display:flex;align-items:center;gap:12px;margin:20px 0 4px;min-width:0}
+.acct-head>div{min-width:0}
+.acct-head strong{font-size:17px;display:block;overflow-wrap:anywhere}
+#account-dialog .acct-head p{margin:2px 0 0;overflow-wrap:anywhere}
 .acct-head .sub:empty{display:none}
 .avatar{display:inline-grid;place-items:center;width:42px;height:42px;border:2px solid var(--ink);border-radius:50%;background:var(--accent);font-weight:900;font-size:18px;flex:none}
-.acct-grid{display:grid;grid-template-columns:auto 1fr;gap:6px 16px;margin:16px 0;border:2px solid var(--ink);padding:14px 16px}
-.acct-grid dt{font-family:monospace;font-size:12px;color:var(--muted);align-self:center}
+.acct-grid{display:grid;grid-template-columns:auto 1fr;gap:8px 16px;margin:16px 0 0;border:2px solid var(--ink);padding:14px 16px;background:var(--canvas)}
+.acct-grid dt{font-family:monospace;font-size:12px;color:var(--muted);text-transform:uppercase;padding-top:2px}
 .acct-grid dd{margin:0;font-weight:600;overflow-wrap:anywhere}
-.acct-grid dd.error-text{color:#c03434}
+.acct-grid dd a{text-decoration-thickness:2px;text-underline-offset:2px}
+.acct-grid dd.error-text{color:#c03434;font-weight:600}
+
+/* Consent prompt */
+.consent-account{margin:14px 0 0;line-height:1.5}
+.consent-account strong{overflow-wrap:anywhere}
+.consent-switch{padding:0;margin-left:4px;font-size:13px;font-weight:700;text-decoration:underline;text-underline-offset:2px;cursor:pointer}
+.consent-switch:hover{transform:none}
+.consent-list{margin:16px 0 0;padding:14px 16px 14px 34px;border:2px solid var(--ink);background:var(--canvas);display:grid;gap:8px;line-height:1.45}
+.consent-list li::marker{color:var(--ink)}
+@media(max-width:480px){
+  #account-dialog .modal,#consent-dialog .modal{padding:22px 18px 20px}
+  #account-dialog .actions button,#consent-dialog .actions button{flex:1 1 auto}
+}

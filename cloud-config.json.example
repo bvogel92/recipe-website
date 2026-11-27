@@ -1,6 +1,7 @@
 {
   "google": {
-    "client_id": "YOUR-CLIENT-ID.apps.googleusercontent.com"
+    "client_id": "YOUR-CLIENT-ID.apps.googleusercontent.com",
+    "client_secret": "YOUR-CLIENT-SECRET"
   },
   "redirect_uri": "https://mac-studio.pipefish-brill.ts.net:8445/oauth-callback.html",
   "dev": { "mock_cloud": false }

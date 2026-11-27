@@ -7,6 +7,9 @@ so URL import works locally.
 
 Cloud-storage API (see README-cloud.md):
   GET  /api/config               public client IDs + redirect URI + mock flag
+  POST /api/oauth/google/token   finishes Google sign-in / refreshes the access
+                                 token, adding the client secret server-side
+                                 (only when google.client_secret is configured)
   GET  /api/mock-cloud/list|read and POST /api/mock-cloud/write|delete
                                  local stand-in for Drive when
                                  dev.mock_cloud is true in cloud-config.json
@@ -34,6 +37,8 @@ TIMEOUT = 12
 UA = "RecipeCollection/1.0"
 CONFIG_PATH = os.path.join(os.path.dirname(os.path.abspath(__file__)), "cloud-config.json")
 MOCK_CLOUD_DIR = os.path.expanduser("~/.recipe-collection-cloud")
+MOCK_MAX_BODY = 32 << 20  # recipe photos are up to ~1 MB before base64 overhead
+GOOGLE_TOKEN_URL = "https://oauth2.googleapis.com/token"
 
 
 class NoRedirect(urllib.request.HTTPRedirectHandler):
@@ -44,6 +49,7 @@ class NoRedirect(urllib.request.HTTPRedirectHandler):
 
 
 OPENER = urllib.request.build_opener(NoRedirect)
+mimetypes.add_type("image/webp", ".webp")
 
 
 def load_cloud_config():
@@ -67,7 +73,10 @@ def public_config():
         section = raw.get(section) or {}
         if not isinstance(section, dict) or not section.get("client_id"):
             return None
-        return {"client_id": section["client_id"]}
+        # token_proxy tells the browser it can use the authorization-code flow
+        # (with refresh tokens) via /api/oauth/google/token. The secret itself
+        # never leaves the server.
+        return {"client_id": section["client_id"], "token_proxy": bool(section.get("client_secret"))}
 
     dev = raw.get("dev") or {}
     return {
@@ -75,6 +84,62 @@ def public_config():
         "redirect_uri": raw.get("redirect_uri") or ("http://localhost:%d/oauth-callback.html" % PORT),
         "mock": bool(isinstance(dev, dict) and dev.get("mock_cloud")),
     }
+
+
+def google_token_request(data):
+    """Exchange an authorization code (or refresh token) at Google's token
+    endpoint, adding the client secret from cloud-config.json.
+
+    Google "Web application" OAuth clients require client_secret on the token
+    endpoint even with PKCE, so a purely in-browser exchange fails with
+    "client_secret is missing". Returns (status, json_dict).
+    """
+    raw = load_cloud_config()
+    google = raw.get("google") if isinstance(raw.get("google"), dict) else {}
+    client_id = google.get("client_id")
+    secret = google.get("client_secret")
+    if not client_id or not secret:
+        return 404, {"error": "token_proxy_disabled",
+                     "error_description": "google.client_secret is not set in cloud-config.json."}
+    grant = data.get("grant_type")
+    form = {"client_id": client_id, "client_secret": secret, "grant_type": grant}
+    if grant == "authorization_code":
+        code, verifier = data.get("code"), data.get("code_verifier")
+        if not (isinstance(code, str) and 0 < len(code) < 2048
+                and isinstance(verifier, str) and 43 <= len(verifier) <= 128):
+            return 400, {"error": "invalid_request", "error_description": "Missing code or code_verifier."}
+        form.update(code=code, code_verifier=verifier, redirect_uri=public_config()["redirect_uri"])
+    elif grant == "refresh_token":
+        token = data.get("refresh_token")
+        if not (isinstance(token, str) and 0 < len(token) < 4096):
+            return 400, {"error": "invalid_request", "error_description": "Missing refresh_token."}
+        form["refresh_token"] = token
+    else:
+        return 400, {"error": "unsupported_grant_type"}
+    req = urllib.request.Request(
+        GOOGLE_TOKEN_URL,
+        data=urllib.parse.urlencode(form).encode("ascii"),
+        headers={"Content-Type": "application/x-www-form-urlencoded", "Accept": "application/json",
+                 "User-Agent": UA},
+    )
+    try:
+        with urllib.request.urlopen(req, timeout=TIMEOUT) as resp:
+            status, body = resp.status, resp.read(65536)
+    except urllib.error.HTTPError as e:
+        status, body = e.code, e.read(65536)
+    except Exception:
+        return 502, {"error": "temporarily_unavailable",
+                     "error_description": "Could not reach Google to finish sign-in."}
+    try:
+        result = json.loads(body)
+    except Exception:
+        return 502, {"error": "temporarily_unavailable", "error_description": "Unexpected reply from Google."}
+    if not isinstance(result, dict):
+        return 502, {"error": "temporarily_unavailable", "error_description": "Unexpected reply from Google."}
+    allowed = ("access_token", "expires_in", "refresh_token", "scope", "token_type",
+               "error", "error_description")
+    return (200 if status == 200 else (status if 400 <= status < 600 else 502)), \
+        {k: result[k] for k in allowed if k in result}
 
 
 def _b64url(data):
@@ -218,11 +283,14 @@ class Handler(BaseHTTPRequestHandler):
         request_host = (self.headers.get("Host") or "").lower()
         return bool(origin_host) and origin_host == request_host
 
-    def _read_json_body(self):
+    def _read_json_body(self, limit=1 << 20):
         """Read + parse a bounded JSON POST body. Returns dict or None."""
         try:
             length = int(self.headers.get("Content-Length") or 0)
-            data = json.loads(self.rfile.read(min(length, 1 << 20)) or b"{}")
+            if length > limit:
+                self.close_connection = True
+                return None
+            data = json.loads(self.rfile.read(length) or b"{}")
             return data if isinstance(data, dict) else None
         except Exception:
             return None
@@ -231,6 +299,15 @@ class Handler(BaseHTTPRequestHandler):
         path = urlparse(self.path).path
         if path in ("/api/mock-cloud/write", "/api/mock-cloud/delete"):
             return self._mock_cloud_post(path)
+        if path == "/api/oauth/google/token":
+            if not self._origin_ok():
+                return self._json(403, {"error": "invalid_request",
+                                        "error_description": "Request origin is not allowed."})
+            data = self._read_json_body()
+            if data is None:
+                return self._json(400, {"error": "invalid_request", "error_description": "Invalid JSON body."})
+            status, result = google_token_request(data)
+            return self._json(status, result)
         if path != "/api/recipe-page":
             return self._json(404, {"error": "Not found"})
         if not self._origin_ok():
@@ -289,9 +366,9 @@ class Handler(BaseHTTPRequestHandler):
             return self._json(404, {"error": "Mock cloud is not enabled. Set dev.mock_cloud in cloud-config.json."})
         if not self._origin_ok():
             return self._json(403, {"error": "Request origin is not allowed."})
-        data = self._read_json_body()
+        data = self._read_json_body(MOCK_MAX_BODY)
         if data is None:
-            return self._json(400, {"error": "Invalid JSON body."})
+            return self._json(400, {"error": "Invalid or too large JSON body."})
         name = data.get("name")
         if not isinstance(name, str):
             return self._json(400, {"error": "Missing file name."})
