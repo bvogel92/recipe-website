@@ -21,6 +21,7 @@
   const STATE_KEY = 'recipe-collection-sync';
   const DELETED_KEY = 'recipe-collection-deleted';
   const TOKEN_KEY = 'recipe-collection-sync-token';
+  const REDIRECT_KEY = 'recipe-collection-sync-redirect';
   const DELETED_KEEP_MS = 400 * 24 * 60 * 60 * 1000;
   const DRIVE = 'https://www.googleapis.com/drive/v3/files';
   const UPLOAD = 'https://www.googleapis.com/upload/drive/v3/files';
@@ -156,7 +157,10 @@
     $('#sync-forget').hidden = !state.connected;
     const go = $('#sync-go');
     go.textContent = !state.connected ? 'Sign in with Google' : hasToken() ? 'Sync now' : 'Resume sync';
-    go.disabled = status === 'syncing';
+    const waitingForGoogle = !hasToken() && !googleReady() && googleLoad !== 'failed';
+    go.disabled = status === 'syncing' || waitingForGoogle;
+    if (waitingForGoogle && !state.connected) go.textContent = 'Loading Google sign-in…';
+    $('#sync-redirect').hidden = !offerRedirect || hasToken();
     let line = statusMessage;
     if (!line && state.connected && !hasToken()) {
       line = pending
@@ -170,19 +174,59 @@
   // ---------- Google sign-in ----------
 
   let gisPromise = null;
+  let googleLoad = 'idle'; // idle | loading | ready | failed
+  let offerRedirect = false;
+  function googleReady() { return !!(window.google && google.accounts && google.accounts.oauth2); }
   function loadGoogle() {
-    if (window.google && google.accounts && google.accounts.oauth2) return Promise.resolve();
+    if (googleReady()) { googleLoad = 'ready'; return Promise.resolve(); }
     if (!gisPromise) {
+      googleLoad = 'loading';
       gisPromise = new Promise((resolve, reject) => {
         const s = document.createElement('script');
         s.src = 'https://accounts.google.com/gsi/client';
         s.async = true;
-        s.onload = () => resolve();
-        s.onerror = () => { gisPromise = null; reject(Error('Could not load Google sign-in. Check your connection and try again.')); };
+        s.onload = () => { googleLoad = 'ready'; paint(); resolve(); };
+        s.onerror = () => {
+          gisPromise = null; googleLoad = 'failed'; offerRedirect = true; s.remove(); paint();
+          reject(Error('Could not load Google sign-in. Check your connection, or select Sign in on this page instead.'));
+        };
         document.head.append(s);
       });
     }
     return gisPromise;
+  }
+
+  // Same-tab sign-in: used when the browser blocks Google's sign-in window.
+  // Google sends the person back here with a short-lived token in the address (#access_token=…).
+  function appAddress() { return location.origin + location.pathname.replace(/index\.html$/, ''); }
+  function signInWithRedirect() {
+    const nonce = (crypto.randomUUID ? crypto.randomUUID() : String(Math.random()).slice(2)) + Date.now();
+    writeJSON(sessionStorage, REDIRECT_KEY, { state: nonce, started: Date.now() });
+    const params = new URLSearchParams({
+      client_id: CLIENT_ID, redirect_uri: appAddress(), response_type: 'token',
+      scope: SCOPES, state: nonce, include_granted_scopes: 'true'
+    });
+    if (!state.connected) params.set('prompt', 'consent');
+    if (state.email) params.set('login_hint', state.email);
+    location.assign('https://accounts.google.com/o/oauth2/v2/auth?' + params);
+  }
+  function takeRedirectResult() {
+    if (!/[#&](state|access_token|error)=/.test(location.hash)) return null;
+    const back = new URLSearchParams(location.hash.slice(1));
+    const saved = readJSON(sessionStorage, REDIRECT_KEY, null);
+    if (!saved || !back.get('state') || back.get('state') !== saved.state || Date.now() - saved.started > 15 * 60000) return null;
+    try { sessionStorage.removeItem(REDIRECT_KEY); } catch {}
+    history.replaceState(null, '', location.pathname + location.search);
+    const error = back.get('error');
+    if (error) return { error: error === 'access_denied' ? 'Google sign-in was cancelled.' : 'Google sign-in did not finish (' + error + ').' };
+    if (!(back.get('scope') || '').split(' ').includes(DRIVE_SCOPE)) {
+      return { error: 'Sync needs permission to use its private Google Drive folder. Try again and leave that box checked.' };
+    }
+    if (!back.get('access_token')) return { error: 'Google sign-in did not finish.' };
+    token = back.get('access_token');
+    tokenExpires = Date.now() + (Number(back.get('expires_in')) || 3600) * 1000 - 60000;
+    writeJSON(localStorage, TOKEN_KEY, { token, expires: tokenExpires });
+    return { ok: true };
   }
 
   function signIn() {
@@ -208,8 +252,9 @@
         },
         error_callback: err => {
           const type = err && err.type;
+          if (type === 'popup_failed_to_open') offerRedirect = true;
           reject(Error(type === 'popup_failed_to_open'
-            ? 'Your browser blocked the Google sign-in window. Allow pop-ups for this site and try again.'
+            ? 'Your browser blocked the Google sign-in window. Select Sign in on this page instead, or allow pop-ups for this site.'
             : type === 'popup_closed'
               ? 'The Google sign-in window was closed before sign-in finished.'
               : 'Google sign-in did not finish.'));
@@ -338,22 +383,34 @@
     } catch {}
   }
 
-  async function startOrResume() {
-    try {
-      if (!hasToken()) {
-        setStatus('syncing', 'Waiting for Google sign-in…');
-        await loadGoogle();
-        await signIn();
-        const firstTime = !state.connected;
-        state.connected = true;
-        saveState();
-        if (firstTime || !state.email) await fetchEmail();
-      }
-      await syncNow();
-    } catch (error) {
-      setStatus(state.connected ? 'paused' : 'off', error.message || 'Google sign-in did not finish.');
-      if (!state.connected) $('#sync-status').classList.add('sync-error');
+  async function afterSignIn() {
+    const firstTime = !state.connected;
+    state.connected = true;
+    offerRedirect = false;
+    saveState();
+    if (firstTime || !state.email) await fetchEmail();
+    await syncNow();
+  }
+
+  function signInFailed(error) {
+    setStatus(state.connected ? 'paused' : 'off', (error && error.message) || 'Google sign-in did not finish.');
+    $('#sync-status').classList.add('sync-error');
+  }
+
+  // Must stay synchronous up to requestAccessToken(): browsers only allow the Google window
+  // to open as a direct result of the tap.
+  function startOrResume() {
+    if (hasToken()) { syncNow(); return; }
+    if (!googleReady()) {
+      offerRedirect = true;
+      loadGoogle().then(() => setStatus(status, 'Google sign-in is ready. Select the button again.'), signInFailed);
+      setStatus(status, 'Getting Google sign-in ready…');
+      return;
     }
+    let pending;
+    try { pending = signIn(); } catch (error) { signInFailed(error); return; }
+    setStatus('syncing', 'Waiting for Google sign-in…');
+    pending.then(afterSignIn).catch(signInFailed);
   }
 
   async function stopSyncing() {
@@ -402,12 +459,27 @@
       if (!hasToken()) loadGoogle().catch(() => {});
     });
     $('#sync-go').addEventListener('click', startOrResume);
+    $('#sync-redirect').addEventListener('click', signInWithRedirect);
     $('#sync-stop').addEventListener('click', stopSyncing);
     $('#sync-forget').addEventListener('click', deleteRemoteCopy);
     document.addEventListener('visibilitychange', () => {
       if (document.visibilityState === 'visible' && state.connected && hasToken() &&
           Date.now() - (state.lastSync || 0) > 30000) syncNow();
     });
+    const back = takeRedirectResult();
+    if (back && back.ok) {
+      setStatus('syncing');
+      afterSignIn().catch(signInFailed);
+      return;
+    }
+    if (back && back.error) {
+      offerRedirect = true;
+      paint();
+      $('#sync-dialog').showModal();
+      signInFailed(Error(back.error));
+      loadGoogle().catch(() => {});
+      return;
+    }
     if (state.connected) {
       setStatus(hasToken() ? 'synced' : 'paused');
       if (hasToken()) syncNow();
