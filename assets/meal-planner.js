@@ -5,9 +5,8 @@ const planKey='recipe-weekly-plan-v1', groups=['Produce','Meat & seafood','Dairy
 const monday=()=>{let d=new Date();d.setDate(d.getDate()-((d.getDay()+6)%7));return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`};
 let plan={week:monday(),active:false,selected:{},grocery:[],signature:''};
 try{let saved=JSON.parse(localStorage.getItem(planKey)||'null');if(saved&&typeof saved==='object')plan={...plan,...saved,selected:saved.selected&&typeof saved.selected==='object'?saved.selected:{},grocery:Array.isArray(saved.grocery)?saved.grocery:[]}}catch{}
-window.addEventListener('rc:plan-changed',()=>{try{let saved=JSON.parse(localStorage.getItem(planKey)||'null');if(saved&&typeof saved==='object')plan={...plan,...saved,selected:saved.selected&&typeof saved.selected==='object'?saved.selected:{},grocery:Array.isArray(saved.grocery)?saved.grocery:[]}}catch{};updatePanel()});
 let statusMessage='';
-function weekLabel(){let [y,m,d]=String(plan.week).split('-').map(Number),date=new Date(y,m-1,d);return Number.isNaN(date.getTime())?String(plan.week):date.toLocaleDateString(undefined,{weekday:'long',month:'long',day:'numeric',year:'numeric'})}function persist(){plan.updatedAt=Date.now();let ok;try{localStorage.setItem(planKey,JSON.stringify(plan));ok=true}catch{statusMessage='Could not save this plan. Browser storage may be full.';ok=false}try{if(window.RC)window.RC.onLocalSave()}catch{}return ok}
+function weekLabel(){let [y,m,d]=String(plan.week).split('-').map(Number),date=new Date(y,m-1,d);return Number.isNaN(date.getTime())?String(plan.week):date.toLocaleDateString(undefined,{weekday:'long',month:'long',day:'numeric',year:'numeric'})}function persist(){try{localStorage.setItem(planKey,JSON.stringify(plan));return true}catch{statusMessage='Could not save this plan. Browser storage may be full.';return false}}
 function chosen(){return recipes.filter(r=>Object.hasOwn(plan.selected,r.id))}
 function batches(id){return Math.max(1,Math.min(20,Number(plan.selected[id])||1))}
 function signature(){return 'grocery-v3|'+JSON.stringify(chosen().map(r=>[r.id,batches(r.id),r.ingredients]))}
