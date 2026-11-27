@@ -68,10 +68,11 @@ Sync needs a free Google Cloud OAuth client ID. The ID is public by design: Goog
 3. **Google Auth Platform → Branding**: enter the app name, a support email, the site's address as the home page, and `https://YOUR-NAME.github.io/REPOSITORY/privacy.html` as the privacy policy.
 4. **Google Auth Platform → Audience**: choose **External**. While it says **Testing**, only the test users you list can sign in; select **Publish app** to let anyone use it. The app requests only non-sensitive permissions, so Google does not require a security review.
 5. **Google Auth Platform → Data Access**: add the scope `https://www.googleapis.com/auth/drive.appdata`.
-6. **Google Auth Platform → Clients → Create client**: type **Web application**. Under **Authorized JavaScript origins**, add `https://YOUR-NAME.github.io` (just the origin, no path), plus `http://localhost:8765` for local testing. No redirect URIs are needed.
+6. **Google Auth Platform → Clients → Create client**: type **Web application**. Under **Authorized JavaScript origins**, add the site's origin, such as `https://YOUR-NAME.github.io` or your custom domain (no path), plus `http://localhost:8765` for local testing. Under **Authorized redirect URIs**, add the site's full address with its trailing slash, such as `https://YOUR-NAME.github.io/REPOSITORY/` or `https://recipes.example.com/`. That address is only used by **Sign in on this page instead**, the fallback for browsers that block Google's sign-in window.
 7. Copy the client ID (it ends in `.apps.googleusercontent.com`) into `googleClientId` in `assets/config.js`, commit, and push.
 
 How it behaves:
+- Google's sign-in opens in a small window. If the browser blocks it, the sync window offers **Sign in on this page instead**, which goes to Google in the same tab and comes back.
 - Each person signs in once per device. Google sign-ins made in the browser last about an hour; after that the Sync button shows **Resume sync**, and one tap continues without another permission screen.
 - Each recipe keeps the time it was last changed. The newest version of each recipe wins, and deletions are remembered so they reach every device.
 - The first time a device syncs, recipes that are already in Drive under a different ID (for example, both devices restored the same backup) are matched by name and ingredients instead of duplicated.
