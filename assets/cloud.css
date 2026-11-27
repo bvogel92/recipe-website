@@ -1,0 +1,26 @@
+/* Recipe Collection — account & sync UI. Styled to match the app theme. */
+.account-btn{display:inline-flex;align-items:center;gap:8px;padding:9px 13px;font-size:13px}
+.account-btn .account-dot{width:10px;height:10px;border-radius:50%;background:#b9b2a4;border:1px solid var(--ink);flex:none;transition:background .2s}
+.account-btn .account-dot.on{background:#3f9d4e}
+.account-btn .account-dot.syncing{background:#e8a33d;animation:rc-pulse 1s ease-in-out infinite}
+.account-btn .account-dot.error{background:#d64545}
+.account-btn.is-error{border-color:#c03434}
+@keyframes rc-pulse{50%{opacity:.35}}
+@media(max-width:650px){.account-btn{padding:8px 10px;font-size:12px}}
+#account-dialog .modal,#consent-dialog .modal{max-width:470px}
+.provider-grid{display:grid;gap:10px;margin:18px 0 14px}
+.provider-btn{display:flex;align-items:center;justify-content:center;gap:10px;width:100%}
+.provider-badge{display:inline-grid;place-items:center;width:24px;height:24px;border:2px solid var(--ink);border-radius:50%;font-weight:900;font-size:13px;background:var(--paper);flex:none;line-height:1}
+.provider-badge.g{background:#ffdd47}
+.provider-badge.mock{background:var(--accent-three)}
+#provider-note{min-height:20px}
+#provider-note.is-error{color:#c03434;font-weight:700}
+.acct-head{display:flex;align-items:center;gap:12px;margin:18px 0 4px}
+.acct-head strong{font-size:17px;display:block}
+.acct-head p{margin:2px 0 0}
+.acct-head .sub:empty{display:none}
+.avatar{display:inline-grid;place-items:center;width:42px;height:42px;border:2px solid var(--ink);border-radius:50%;background:var(--accent);font-weight:900;font-size:18px;flex:none}
+.acct-grid{display:grid;grid-template-columns:auto 1fr;gap:6px 16px;margin:16px 0;border:2px solid var(--ink);padding:14px 16px}
+.acct-grid dt{font-family:monospace;font-size:12px;color:var(--muted);align-self:center}
+.acct-grid dd{margin:0;font-weight:600;overflow-wrap:anywhere}
+.acct-grid dd.error-text{color:#c03434}

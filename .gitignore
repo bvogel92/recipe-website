@@ -1,7 +1,18 @@
+# Local secrets & machine-specific config
+cloud-config.json
+
+# Logs & caches
+server.log
+__pycache__/
+*.pyc
+
+# OS
+.DS_Store
+
+# Build output and local tooling
 dist/
 .sites-runtime/
 node_modules/
 .env
 .env.*
 !.env.example
-.DS_Store
