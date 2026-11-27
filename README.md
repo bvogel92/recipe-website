@@ -8,6 +8,8 @@ A personal recipe collection with a Neubrutalist interface, recipe imports, week
 - Search, sorting, multiple category labels, grouped category view, personal ratings, and compact clickable cards.
 - Detail view with two-column ingredients, basic Markdown, previous/next navigation, keyboard arrows, and click-outside dismissal.
 - Optional sync across devices through each person's own Google Drive (see **Turn on sync**).
+- Recipe page with prep, cook, and automatic total time; servings scaling (×¼ to ×4) that rewrites ingredient amounts; ingredient checkboxes; numbered step cards; Cook mode, which keeps the screen on where the browser allows; and Ingredients/Instructions tabs on phones. Logic lives in `assets/recipe-page.js`.
+- Prep time and cook time are free text ("15 minutes", "1 hr 15 min", "overnight"); imported recipes bring theirs in from schema.org data.
 - Substitution charts: ingredient lines that mention onion get a **⇄ Swap** button showing fresh, dried minced, and powdered equivalents, with the recipe's amount highlighted. Charts live in `assets/substitutions.js`.
 - Recipe import with review before saving, from a bookmarklet, pasted page source or recipe JSON, or an optional import helper. Reads schema.org Recipe JSON-LD and microdata, Blueberry.org layouts and WP Recipe Maker pages, and falls back to the page title and photo.
 - Uploaded-photo compression above 1 MB; JSON backup import and export.
