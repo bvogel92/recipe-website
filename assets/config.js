@@ -4,7 +4,7 @@ window.RECIPE_CONFIG = {
   // Google OAuth client ID (a "Web application" client) that turns on "Sync with Google Drive".
   // It looks like 1234567890-abc123.apps.googleusercontent.com. Leave empty to hide sync.
   // Setup steps are in README.md under "Turn on sync".
-  googleClientId: '',
+  googleClientId: '303486450590-i7hfqjnpkrik4pg1m8gnnpuctg6kmvat.apps.googleusercontent.com',
 
   // Optional address of a recipe-page import helper (the Cloudflare Worker in worker/).
   // With it, "Import a recipe" can fetch a recipe from its web address.
