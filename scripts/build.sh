@@ -7,6 +7,7 @@ files={'/index.html':('assets/index.html','text/html; charset=utf-8')}
 files['/recipe-markdown.js']=('assets/recipe-markdown.js','text/javascript; charset=utf-8')
 files['/privacy.html']=('assets/privacy.html','text/html; charset=utf-8')
 files['/config.js']=('assets/config.js','text/javascript; charset=utf-8')
+files['/substitutions.js']=('assets/substitutions.js','text/javascript; charset=utf-8')
 files['/sync.js']=('assets/sync.js','text/javascript; charset=utf-8')
 files['/meal-planner.js']=('assets/meal-planner.js','text/javascript; charset=utf-8')
 files['/meal-planner.css']=('assets/meal-planner.css','text/css; charset=utf-8')
