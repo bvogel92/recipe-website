@@ -11,5 +11,5 @@ window.RECIPE_CONFIG = {
   // - Site hosted by that Worker itself: '/api/recipe-page'
   // - Site on GitHub Pages with a separate Worker: 'https://YOUR-WORKER.workers.dev/api/recipe-page'
   // Leave empty to import with the bookmarklet or by pasting the page instead.
-  importHelperUrl: ''
+  importHelperUrl: 'https://recipe-import-helper.bvog92.workers.dev/api/recipe-page'
 };
