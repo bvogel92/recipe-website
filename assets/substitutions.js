@@ -25,6 +25,13 @@
         ['2/3 cup', '2 tablespoons', '2 teaspoons'],
         ['3/4 cup', '2-1/4 tablespoons', '2-1/4 teaspoons'],
         ['1 cup', '3 tablespoons', '1 tablespoon']
+      ],
+      // Shown in a box below the table: a sentence, or a list of lines for bullet points.
+      // Leave it out for no note.
+      note: [
+        'Small onion — about the size of a Roma tomato — will give you 4 ounces or ½ cup chopped.',
+        'Medium onion — about the size of a turnip — will give you 8 ounces or 1 cup chopped.',
+        'Large onion — about the size of a pomegranate — will give you 12 ounces or 1-½ cups chopped.'
       ]
     }
   ];
@@ -88,7 +95,7 @@
       '<div class="modal"><div class="modalhead"><h2 id="subs-title"></h2>' +
       '<button type="button" class="link" aria-label="Close substitutions">✕</button></div>' +
       '<p class="sub" id="subs-for"></p><div class="subs-table-wrap"><table class="subs-table"><thead><tr></tr></thead><tbody></tbody></table></div>' +
-      '<p class="sub" id="subs-note"></p></div>';
+      '<p class="sub" id="subs-note"></p><div class="subs-chart-note" id="subs-chart-note" hidden></div></div>';
     dialog.querySelector('.modalhead button').onclick = () => dialog.close();
     dialog.addEventListener('click', e => {
       if (e.target !== dialog) return;
@@ -128,6 +135,16 @@
     dialog.querySelector('#subs-note').textContent = row >= 0
       ? 'The highlighted row matches the amount in this recipe. Read across it to swap.'
       : 'Each row is the same amount of onion flavor. Find your amount in one column and read across.';
+    const chartNote = dialog.querySelector('#subs-chart-note');
+    const noteLines = [].concat(chart.note || []).filter(Boolean);
+    if (noteLines.length > 1) {
+      const list = document.createElement('ul');
+      list.append(...noteLines.map(text => { const li = document.createElement('li'); li.textContent = text; return li; }));
+      chartNote.replaceChildren(list);
+    } else {
+      chartNote.textContent = noteLines[0] || '';
+    }
+    chartNote.hidden = !noteLines.length;
     if (!dialog.open) dialog.showModal();
     dialog.querySelector('.modalhead button').focus();
   }
