@@ -1,7 +1,8 @@
 // Recipe Collection: optional sync through each person's own Google Drive.
 //
 // How it works
-// - Sign-in uses Google Identity Services in the browser. There is no server and no client secret.
+// - Sign-in goes to Google in the same tab and comes back with a short-lived token in the address.
+//   There is no server, no pop-up window and no client secret.
 // - Recipes are stored in one JSON file in the Drive "appDataFolder": a hidden folder that only this
 //   app can read. The app cannot see any of the person's other Drive files.
 // - Each recipe carries an `updated` time. Merging keeps the newest copy of each recipe and
@@ -157,10 +158,7 @@
     $('#sync-forget').hidden = !state.connected;
     const go = $('#sync-go');
     go.textContent = !state.connected ? 'Sign in with Google' : hasToken() ? 'Sync now' : 'Resume sync';
-    const waitingForGoogle = !hasToken() && !googleReady() && googleLoad !== 'failed';
-    go.disabled = status === 'syncing' || waitingForGoogle;
-    if (waitingForGoogle && !state.connected) go.textContent = 'Loading Google sign-in…';
-    $('#sync-redirect').hidden = !offerRedirect || hasToken();
+    go.disabled = status === 'syncing';
     let line = statusMessage;
     if (!line && state.connected && !hasToken()) {
       line = pending
@@ -173,35 +171,14 @@
 
   // ---------- Google sign-in ----------
 
-  let gisPromise = null;
-  let googleLoad = 'idle'; // idle | loading | ready | failed
-  let offerRedirect = false;
-  function googleReady() { return !!(window.google && google.accounts && google.accounts.oauth2); }
-  function loadGoogle() {
-    if (googleReady()) { googleLoad = 'ready'; return Promise.resolve(); }
-    if (!gisPromise) {
-      googleLoad = 'loading';
-      gisPromise = new Promise((resolve, reject) => {
-        const s = document.createElement('script');
-        s.src = 'https://accounts.google.com/gsi/client';
-        s.async = true;
-        s.onload = () => { googleLoad = 'ready'; paint(); resolve(); };
-        s.onerror = () => {
-          gisPromise = null; googleLoad = 'failed'; offerRedirect = true; s.remove(); paint();
-          reject(Error('Could not load Google sign-in. Check your connection, or select Sign in on this page instead.'));
-        };
-        document.head.append(s);
-      });
-    }
-    return gisPromise;
-  }
-
-  // Same-tab sign-in: used when the browser blocks Google's sign-in window.
-  // Google sends the person back here with a short-lived token in the address (#access_token=…).
+  // Sign-in happens in this tab: the page goes to Google, and Google sends the person back here
+  // with a short-lived token in the address (#access_token=…). `then` names something to finish
+  // after coming back ('delete' = delete the synced copy).
   function appAddress() { return location.origin + location.pathname.replace(/index\.html$/, ''); }
-  function signInWithRedirect() {
+  function signInWithRedirect(then) {
     const nonce = (crypto.randomUUID ? crypto.randomUUID() : String(Math.random()).slice(2)) + Date.now();
-    writeJSON(sessionStorage, REDIRECT_KEY, { state: nonce, started: Date.now() });
+    writeJSON(sessionStorage, REDIRECT_KEY, { state: nonce, started: Date.now(), then: typeof then === 'string' ? then : '' });
+    setStatus('syncing', 'Going to Google sign-in…');
     const params = new URLSearchParams({
       client_id: CLIENT_ID, redirect_uri: appAddress(), response_type: 'token',
       scope: SCOPES, state: nonce, include_granted_scopes: 'true'
@@ -226,44 +203,18 @@
     token = back.get('access_token');
     tokenExpires = Date.now() + (Number(back.get('expires_in')) || 3600) * 1000 - 60000;
     writeJSON(localStorage, TOKEN_KEY, { token, expires: tokenExpires });
-    return { ok: true };
+    return { ok: true, then: saved.then || '' };
   }
 
-  function signIn() {
-    return new Promise((resolve, reject) => {
-      const client = google.accounts.oauth2.initTokenClient({
-        client_id: CLIENT_ID,
-        scope: SCOPES,
-        callback: response => {
-          if (response.error) {
-            reject(Error(response.error === 'access_denied'
-              ? 'Google sign-in was cancelled.'
-              : 'Google sign-in did not finish (' + response.error + ').'));
-            return;
-          }
-          if (!google.accounts.oauth2.hasGrantedAllScopes(response, DRIVE_SCOPE)) {
-            reject(Error('Sync needs permission to use its private Google Drive folder. Try again and leave that box checked.'));
-            return;
-          }
-          token = response.access_token;
-          tokenExpires = Date.now() + (Number(response.expires_in) || 3600) * 1000 - 60000;
-          writeJSON(localStorage, TOKEN_KEY, { token, expires: tokenExpires });
-          resolve();
-        },
-        error_callback: err => {
-          const type = err && err.type;
-          if (type === 'popup_failed_to_open') offerRedirect = true;
-          reject(Error(type === 'popup_failed_to_open'
-            ? 'Your browser blocked the Google sign-in window. Select Sign in on this page instead, or allow pop-ups for this site.'
-            : type === 'popup_closed'
-              ? 'The Google sign-in window was closed before sign-in finished.'
-              : 'Google sign-in did not finish.'));
-        }
-      });
-      const options = { prompt: state.connected ? '' : 'consent' };
-      if (state.email) options.login_hint = state.email;
-      client.requestAccessToken(options);
-    });
+  // Tells Google to cancel the token (same as signing the app out of the Drive folder).
+  function revokeToken() {
+    if (!token) return;
+    try {
+      fetch('https://oauth2.googleapis.com/revoke', {
+        method: 'POST', headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+        body: 'token=' + encodeURIComponent(token)
+      }).catch(() => {});
+    } catch {}
   }
 
   // ---------- Google Drive ----------
@@ -386,7 +337,6 @@
   async function afterSignIn() {
     const firstTime = !state.connected;
     state.connected = true;
-    offerRedirect = false;
     saveState();
     if (firstTime || !state.email) await fetchEmail();
     await syncNow();
@@ -397,20 +347,9 @@
     $('#sync-status').classList.add('sync-error');
   }
 
-  // Must stay synchronous up to requestAccessToken(): browsers only allow the Google window
-  // to open as a direct result of the tap.
   function startOrResume() {
     if (hasToken()) { syncNow(); return; }
-    if (!googleReady()) {
-      offerRedirect = true;
-      loadGoogle().then(() => setStatus(status, 'Google sign-in is ready. Select the button again.'), signInFailed);
-      setStatus(status, 'Getting Google sign-in ready…');
-      return;
-    }
-    let pending;
-    try { pending = signIn(); } catch (error) { signInFailed(error); return; }
-    setStatus('syncing', 'Waiting for Google sign-in…');
-    pending.then(afterSignIn).catch(signInFailed);
+    signInWithRedirect();
   }
 
   async function stopSyncing() {
@@ -418,9 +357,7 @@
       'Your recipes stay on this device and in your Google Drive. This device just stops sending and receiving changes.',
       { title: 'Stop syncing on this device?', ok: 'Stop syncing' });
     if (!ok) return;
-    if (token && window.google && google.accounts && google.accounts.oauth2) {
-      try { google.accounts.oauth2.revoke(token, () => {}); } catch {}
-    }
+    revokeToken();
     dropToken();
     state = {};
     saveState();
@@ -430,16 +367,19 @@
 
   async function deleteRemoteCopy() {
     const ok = await appConfirm(
-      'This removes the synced copy of your recipes from your Google Drive and stops sync on this device. Recipes on your devices are not deleted. Other devices will upload their recipes again the next time they sync.',
+      'This removes the synced copy of your recipes from your Google Drive and stops sync on this device. Recipes on your devices are not deleted. Other devices will upload their recipes again the next time they sync.' +
+      (hasToken() ? '' : ' You will sign in with Google first, then come back here.'),
       { title: 'Delete the synced copy?', ok: 'Delete synced copy', danger: true });
     if (!ok) return;
+    if (!hasToken()) { signInWithRedirect('delete'); return; }
+    await finishDelete();
+  }
+
+  async function finishDelete() {
     try {
-      if (!hasToken()) { await loadGoogle(); await signIn(); }
       const id = await findFile();
       if (id) await api(DRIVE + '/' + encodeURIComponent(id), { method: 'DELETE' });
-      if (window.google && google.accounts && google.accounts.oauth2) {
-        try { google.accounts.oauth2.revoke(token, () => {}); } catch {}
-      }
+      revokeToken();
       dropToken();
       state = {};
       saveState();
@@ -456,10 +396,8 @@
     $('#sync-open').addEventListener('click', () => {
       paint();
       $('#sync-dialog').showModal();
-      if (!hasToken()) loadGoogle().catch(() => {});
     });
     $('#sync-go').addEventListener('click', startOrResume);
-    $('#sync-redirect').addEventListener('click', signInWithRedirect);
     $('#sync-stop').addEventListener('click', stopSyncing);
     $('#sync-forget').addEventListener('click', deleteRemoteCopy);
     document.addEventListener('visibilitychange', () => {
@@ -467,23 +405,27 @@
           Date.now() - (state.lastSync || 0) > 30000) syncNow();
     });
     const back = takeRedirectResult();
+    if (back && back.ok && back.then === 'delete') {
+      paint();
+      $('#sync-dialog').showModal();
+      setStatus('syncing', 'Deleting the synced copy…');
+      finishDelete();
+      return;
+    }
     if (back && back.ok) {
       setStatus('syncing');
       afterSignIn().catch(signInFailed);
       return;
     }
     if (back && back.error) {
-      offerRedirect = true;
       paint();
       $('#sync-dialog').showModal();
       signInFailed(Error(back.error));
-      loadGoogle().catch(() => {});
       return;
     }
     if (state.connected) {
       setStatus(hasToken() ? 'synced' : 'paused');
       if (hasToken()) syncNow();
-      else loadGoogle().catch(() => {});
     } else {
       setStatus('off');
     }
