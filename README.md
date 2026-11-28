@@ -12,9 +12,9 @@ A personal recipe collection with a Neubrutalist interface, recipe imports, week
 - Prep time and cook time are free text ("15 minutes", "1 hr 15 min", "overnight"); imported recipes bring theirs in from schema.org data.
 - Substitutions: ingredient lines get a **⇄ Swap** button when there's a substitution for them. Onion opens a chart of fresh, dried minced, and powdered equivalents with the recipe's amount highlighted, plus a note on onion sizes. About 75 other ingredients, from The Old Farmer's Almanac's substitution list (buttermilk, eggs, butter, flours, sugars, cream, vinegars, wine, tomatoes, herbs, and more), open a list of stand-ins scaled to the amount in the recipe. All of them live in `assets/substitutions.js`.
 - Recipe import with review before saving, from a bookmarklet, pasted page source or recipe JSON, or an optional import helper. Reads schema.org Recipe JSON-LD and microdata, Blueberry.org layouts and WP Recipe Maker pages, and falls back to the page title and photo.
-- Uploaded-photo compression above 1 MB; JSON backup import and export.
+- Uploaded-photo compression above 1 MB; JSON backup import and export (in **Settings → Backup**).
 - Rule-based Beautify and category suggestions; original text is retained when formatting changes it.
-- Six accent palettes with a preview and Apply/Cancel settings.
+- **Settings** window: a dropdown of six accent palettes (applied right away), Sync, and Backup (Export / Import backup).
 - Weekly recipe selection with highlighted checkboxes and batch counts; editable grocery lists grouped by aisle, pantry exclusions, added items, plain-text Copy, and PDF download.
 - Ingredient matching ignores common preparation words and excludes plain cooking water and ingredient headings. Ambiguous amounts are flagged rather than guessed.
 
@@ -76,7 +76,7 @@ Sync needs a free Google Cloud OAuth client ID. The ID is public by design: Goog
 
 How it behaves:
 - **Sign in with Google** goes to Google's sign-in page in the same tab and comes back to the site when you're done. There's no pop-up window, so pop-up blockers don't get in the way.
-- Each person signs in once per device. Google sign-ins made in the browser last about an hour; after that the Sync button shows **Resume sync**, and one tap continues without another permission screen.
+- Each person signs in once per device. Google sign-ins made in the browser last about an hour; after that the Sync button (in **Settings**) shows **Resume sync**, the Settings button gets a small dot, and one tap continues without another permission screen.
 - Each recipe keeps the time it was last changed. The newest version of each recipe wins, and deletions are remembered so they reach every device.
 - The first time a device syncs, recipes that are already in Drive under a different ID (for example, both devices restored the same backup) are matched by name and ingredients instead of duplicated.
 - Meal plans and color palettes stay on each device.

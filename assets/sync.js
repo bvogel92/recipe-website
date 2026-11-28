@@ -137,6 +137,9 @@
   function paint() {
     const button = $('#sync-open');
     if (!button) return;
+    // The Sync button lives in the Settings window; that section only shows when sync is set up.
+    const section = $('#settings-sync');
+    if (section) section.hidden = !CLIENT_ID;
     if (!CLIENT_ID) { button.hidden = true; return; }
     button.hidden = false;
     const labels = {
@@ -146,6 +149,9 @@
     if (kind === 'synced' && pending) kind = 'syncing';
     button.querySelector('.sync-label').textContent = labels[kind] || 'Sync';
     button.dataset.state = kind;
+    // A dot on the Settings button when sync needs attention (paused or a problem).
+    const gear = $('#settings-open');
+    if (gear) gear.dataset.sync = kind;
     button.title = kind === 'synced' && state.lastSync ? 'Last synced ' + timeLabel(state.lastSync) : '';
 
     const dialog = $('#sync-dialog');
