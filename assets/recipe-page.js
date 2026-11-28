@@ -77,7 +77,7 @@
   function parseQty(text) {
     let s = String(text).trim();
     for (const [ch, v] of Object.entries(FRACTIONS)) s = s.replace(ch, ' ' + v);
-    s = s.replace(/(\d)-(?=\d+\/\d+)/, '$1 ').replace(/\s+/g, ' ').trim();
+    s = s.replace(/(\d)\s+and\s+(?=\d+\/\d+)/, '$1 ').replace(/(\d)-(?=\d+\/\d+)/, '$1 ').replace(/\s+/g, ' ').trim();
     let total = 0;
     for (const part of s.split(' ')) {
       if (/^\d+\/\d+$/.test(part)) { const [a, b] = part.split('/').map(Number); if (!b) return NaN; total += a / b; }
@@ -98,7 +98,7 @@
     return w ? w + ' ' + best[1] : best[1];
   }
 
-  const NUM = '(?:\\d+(?:\\s+|-)\\d+\\/\\d+|\\d+\\/\\d+|\\d+(?:\\.\\d+)?(?:\\s*[¼½¾⅓⅔⅛⅜⅝⅞])?|[¼½¾⅓⅔⅛⅜⅝⅞])';
+  const NUM = '(?:\\d+\\s+and\\s+\\d+\\/\\d+|\\d+(?:\\s+|-)\\d+\\/\\d+|\\d+\\/\\d+|\\d+(?:\\.\\d+)?(?:\\s*[¼½¾⅓⅔⅛⅜⅝⅞])?|[¼½¾⅓⅔⅛⅜⅝⅞])';
   const AMOUNT = new RegExp('^(\\s*)(' + NUM + ')(?:\\s*(?:-|–|to)\\s*(' + NUM + '))?(?:(\\s*)((?:large\\s+)?[A-Za-z]+\\.?))?');
 
   // Splits "1 1/2 cups flour" into amount ("1 1/2 cups", scaled) and the rest; null if no leading amount.
@@ -129,12 +129,16 @@
   let recipe = null, factor = 1, checked = new Set(), stepsDone = new Set(), tab = 'ingredients', wakeLock = null, cooking = false;
   const BATCH_STEPS = [0.25, 0.5, 1, 1.5, 2, 3, 4];
 
+  // "6 servings" -> {n: 6, label: 'servings'}; "5 - 6 people" -> {n: 5, n2: 6, label: 'people'}.
   function yieldBase(text) {
-    const m = String(text || '').match(/(\d+\s+\d+\/\d+|\d+\/\d+|\d+(?:\.\d+)?|[¼½¾⅓⅔])/);
+    const N = '(\\d+\\s+\\d+\\/\\d+|\\d+\\/\\d+|\\d+(?:\\.\\d+)?|[¼½¾⅓⅔])';
+    const m = String(text || '').match(new RegExp(N + '(?:\\s*(?:-|–|to)\\s*' + N + ')?'));
     if (!m) return null;
-    const n = parseQty(m[1]);
-    const label = String(text).replace(m[0], ' ').replace(/\s+/g, ' ').trim().replace(/^(?:makes|serves|yields?)\b:?\s*/i, '').replace(/^[-–:]\s*/, '');
-    return n > 0 ? { n, label } : null;
+    const n = parseQty(m[1]), n2 = m[2] ? parseQty(m[2]) : null;
+    if (!(n > 0)) return null;
+    const label = String(text).replace(m[0], ' ').replace(/\s+/g, ' ').trim()
+      .replace(/^(?:makes|serves|yields?)\b:?\s*/i, '').replace(/^[-–:]\s*/, '');
+    return n2 > n ? { n, n2, label } : { n, label };
   }
 
   // ---------- Rendering ----------
@@ -169,7 +173,7 @@
     const state = box.querySelector('.rp-servings-state');
     if (base) {
       label.textContent = 'Makes';
-      value.textContent = formatQty(base.n * factor) + (base.label ? ' ' + base.label : '');
+      value.textContent = formatQty(base.n * factor) + (base.n2 ? '–' + formatQty(base.n2 * factor) : '') + (base.label ? ' ' + base.label : '');
     } else {
       label.textContent = 'Batch';
       value.textContent = '×' + formatQty(factor);
